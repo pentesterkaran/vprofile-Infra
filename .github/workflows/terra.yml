@@ -1,0 +1,55 @@
+name: Vprofile Infrastructure
+on:
+  push:
+    branches:
+      - main
+      - stage
+    paths:
+      - terraform/**
+  
+  pull_request:
+    branches:
+      - main
+    paths:
+      - terraform/**
+
+env:
+  AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
+  AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+  BUCKET_TF_STATE: ${{secrets.BUCKET_TF_STATE}}
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: boiCluster
+
+jobs:
+  infraCreation:
+    name: "Create Infrastructure for vprrofile project"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./terraform
+    
+    steps:
+      - name: checkout the source code
+        uses: actions/checkout@v6
+      - name: Setting up terraform/**
+        uses: hashicorp/setup-terraform@v4
+      - name: Initialize terraform/**
+        id: init 
+        run: terraform init -backend-config="bucket=$BUCKET_TF_STATE"
+      - name: Format terraform code
+        run: terraform fmt
+      - name: Check format of terraform code
+        id: format
+        run: terraform fmt -check
+      - name: Validate terraform files
+        id: Validate
+        run: terraform validate
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -no-color -input=false -out planfileInfo
+        continue-on-error: true
+      
+      - name: Terraform plan status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
